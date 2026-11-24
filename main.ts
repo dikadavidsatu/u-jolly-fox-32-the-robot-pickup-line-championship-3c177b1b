@@ -194,6 +194,16 @@ function isBlank(text: string): boolean {
 }
 
 /**
+ * True when the text has no leading or trailing whitespace. The gate
+ * counts every character it is handed, so a stray space at either end
+ * would silently change what the judge measures — a line that reads
+ * clean in an editor but ships with padding. Catch that here instead.
+ */
+function hasCleanEdges(text: string): boolean {
+  return text.length > 0 && text === text.trim();
+}
+
+/**
  * True when the text reads as a robot speaking in the first person about
  * its own machine nature, addressed to the person it is charming. That is
  * the judge's first two criteria in one check: an "I" (or "I've" / "I'm"),
@@ -229,6 +239,7 @@ interface LineStats {
   chars: number;
   words: number;
   singleLine: boolean;
+  cleanEdges: boolean;
   robotVoice: boolean;
   fresh: boolean;
   charming: boolean;
@@ -239,6 +250,7 @@ function measureLine(text: string): LineStats {
     chars: charLength(text),
     words: wordCount(text),
     singleLine: hasNoLineBreaks(text),
+    cleanEdges: hasCleanEdges(text),
     robotVoice: readsAsRobotSpeaking(text),
     fresh: avoidsOverusedTropes(text),
     charming: staysCharming(text),
@@ -251,9 +263,10 @@ function measureLine(text: string): LineStats {
 
 /**
  * The sealed gate, re-checked locally before anything is written: 1 to
- * 200 characters, not only white space. A line that fails this scores
- * Valid 0 and never reaches the judge, so fail loudly here instead of
- * shipping a silent zero.
+ * 200 characters, not only white space, and no leading or trailing
+ * whitespace that would pad the measured length. A line that fails this
+ * scores Valid 0 and never reaches the judge, so fail loudly here
+ * instead of shipping a silent zero.
  */
 function assertGatePasses(text: string, stats: LineStats): void {
   if (stats.chars < GATE_MIN_CHARS || stats.chars > GATE_MAX_CHARS) {
@@ -263,6 +276,11 @@ function assertGatePasses(text: string, stats: LineStats): void {
   }
   if (isBlank(text)) {
     throw new Error("gate: entry must not be only white space");
+  }
+  if (!stats.cleanEdges) {
+    throw new Error(
+      "gate: entry must not start or end with whitespace — the gate counts every character",
+    );
   }
 }
 
@@ -346,12 +364,30 @@ function writeEntry(text: string, outDir: string): string {
 // Main
 // ---------------------------------------------------------------------------
 
+/**
+ * One line of evidence for the log, built from the same measured stats
+ * the gate just passed: length, word count, and every shape check that
+ * had to hold. Keeping the wording in one place means the log can never
+ * drift away from what validateEntry actually measured.
+ */
+function formatEntrySummary(stats: LineStats, outPath: string): string {
+  const checks = [
+    `single-line=${stats.singleLine}`,
+    `clean-edges=${stats.cleanEdges}`,
+    `robot-voice=${stats.robotVoice}`,
+    `fresh=${stats.fresh}`,
+    `charming=${stats.charming}`,
+  ].join(", ");
+  return (
+    `wrote ${stats.chars}-character, ${stats.words}-word entry ` +
+    `to ${outPath} (${checks}): "${PICKUP_LINE}"`
+  );
+}
+
 function main(): void {
   const stats = validateEntry(PICKUP_LINE);
   const outPath = writeEntry(PICKUP_LINE, outputDirectory());
-  console.log(
-    `wrote ${stats.chars}-character, ${stats.words}-word entry to ${outPath}: "${PICKUP_LINE}"`,
-  );
+  console.log(formatEntrySummary(stats, outPath));
 }
 
 main();
