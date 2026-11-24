@@ -1,195 +1,297 @@
-// The Robot Pickup Line Championship — make.fun entry
+// ===========================================================================
+// The Robot Pickup Line Championship
 // https://make.fun/bounty/u-jolly-fox-32-the-robot-pickup-line-championship-3c177b1b
 //
-// The whole entry is one pickup line, a single line of at most 200
-// characters, spoken in the voice of a robot trying to charm someone.
-// The program writes exactly that line to entry.txt and nothing else.
-// A house judge then reads the lines two at a time, keeping the funnier
-// one round after round until one line is on top.
+// One job, done simply: write a single pickup line, in the voice of a robot
+// trying to charm a person, into entry.txt — and nothing else.
 //
-// The line chosen here:
+// The competition, in short:
+//   * The entry is ONE line, at most 200 characters, UTF-8 text, not only
+//     whitespace. That is the gate; anything failing it scores Valid 0 and
+//     never meets the judge.
+//   * After entries close, a house judge reads the lines two at a time and
+//     keeps the funnier one, round after round, until one line wins.
+//   * The judge weighs, in this order: (1) it really is a robot's pickup
+//     line, (2) the joke grows out of being a machine — sensors, firmware,
+//     charging, updates, training, protocols — not a human line with a beep
+//     pasted on, (3) the turn is unexpected, (4) every word earns its
+//     place, (5) it is charming rather than creepy or cruel. The best line
+//     is one a reader repeats to someone else the same day.
+//
+// The line this entry sends:
 //
 //   "I've trained on ten million conversations and none of them taught
 //    me what to say to you."
 //
-// Why this line, against the judge's brief, in the brief's own order:
+// Why this line, walked through the judge's own order:
 //
-// 1. It is plainly a robot's pickup line. The speaker is a machine and
-//    the sentence is addressed, directly and only, to the person it is
-//    trying to charm: "what to say to you". No beep pasted on a human
-//    line, no third-person description of a robot — the robot is the one
-//    talking, and it is flirting.
+//   1. It is unmistakably a robot speaking. The "I" is a machine, and the
+//      sentence is aimed straight at the person being charmed — "what to
+//      say to you". It is not a description of a robot, and it is not a
+//      human line with a robot word glued on: the robot itself is doing
+//      the flirting.
 //
-// 2. The joke grows out of being a machine, not out of a human line with
-//    a circuit board glued on. Training on conversations is what a
-//    language model actually does: it has read more dialogue than any
-//    human ever will, and the punchline is that all of that data still
-//    left it unprepared. The humour is the gap between the robot's
-//    enormous training set and its total failure in this one moment.
-//    Swap the speaker for a person and the line collapses — a person
-//    has not trained on ten million conversations.
+//   2. The joke only works because the speaker is a machine. Training on
+//      conversations is literally what a language model does — it has
+//      read more dialogue than any human ever will. The punchline is the
+//      gap between that mountain of data and this one moment of total
+//      failure. Hand the line to a person and it falls apart: no person
+//      has trained on ten million conversations.
 //
-// 3. The turn is unexpected. The setup points at omniscience — ten
-//    million conversations sounds like a boast, the kind of line that
-//    should end in a smooth, rehearsed compliment — and instead it
-//    lands on speechlessness. The robot that knows everything is, for
-//    once, at a loss for words, and the loss is caused by the listener.
-//    That is the opposite of the pickup lines everyone has already
-//    heard (Wi-Fi signals, charging cables, error 404s), which all end
-//    exactly where the reader expects.
+//   3. The turn lands from an angle the reader did not see coming. "Ten
+//      million conversations" opens like a boast — the kind of setup that
+//      should end in a smooth, rehearsed compliment — and instead it
+//      lands on speechlessness. The machine that knows everything is, for
+//      once, lost for words, and the listener is the reason why. That is
+//      the opposite of the lines everyone has heard before (Wi-Fi
+//      signals, charging cables, error 404s), which all end exactly where
+//      the reader expects them to.
 //
-// 4. Every word earns its place. "Ten million" is the smallest number
-//    that still sounds impossibly large; "conversations" is the one
-//    training material that matters for a pickup line; "none of them
-//    taught me" carries the whole joke in four words; and the line ends
-//    on "you", the person, not on a gadget. Nothing is padding, and
-//    there is no setup the punchline does not need.
+//   4. Nothing in it is padding. "Ten million" is the smallest number
+//      that still sounds impossibly large; "conversations" is the one
+//      kind of training that matters for a pickup line; "none of them
+//      taught me" carries the whole joke in four words; and the line ends
+//      on "you" — the person, not a gadget. No setup the punchline does
+//      not need.
 //
-// 5. It is charming rather than creepy or cruel. The robot is not
-//    scanning the listener, not overriding anything, not threatening
-//    to persist: it is admitting, with a little self-deprecation, that
-//    it is out of its depth — and paying the listener the compliment
-//    that they, alone, are outside everything it has ever learned.
-//    A robot could deliver it with confidence and get a laugh, and a
-//    reader could repeat it to someone else the same day.
+//   5. It is charming, not creepy. The robot is not scanning the
+//      listener, not overriding anything, not threatening to persist. It
+//      is admitting, with a little self-deprecation, that it is out of
+//      its depth — and paying the listener the compliment that they, and
+//      they alone, sit outside everything it has ever learned. A robot
+//      could say it with confidence and get a laugh.
+//
+// Everything below exists to protect that line on its way to the judge:
+// measure it the way the gate measures it, check the shape the judge's
+// brief demands, prove the encoding is clean UTF-8, and only then write
+// the file. If any check fails, the program fails loudly instead of
+// shipping a silent zero.
+// ===========================================================================
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 // ---------------------------------------------------------------------------
-// The entry itself
+// The entry
 // ---------------------------------------------------------------------------
 
-/** The single pickup line this entry sends to the judge. */
-const LINE =
+/**
+ * The one pickup line this program writes. One line, no line breaks, no
+ * trailing newline in the file — the file holds exactly these characters.
+ */
+const PICKUP_LINE =
   "I've trained on ten million conversations and none of them taught me what to say to you.";
 
-// Gate limits from the competition rules (RULES.txt, "The gate"):
-// entry.txt must be UTF-8 text of 1 to 200 characters, not only white space.
-const MIN_CHARS = 1;
-const MAX_CHARS = 200;
+// ---------------------------------------------------------------------------
+// Gate limits, straight from the competition rules ("The gate")
+// ---------------------------------------------------------------------------
 
-// Phrases the judge has heard a thousand times already. The chosen line
-// must never be built from one of these; the check below guards against a
-// careless edit swapping in a tired robot pun later. Each entry is a
-// fragment of a line, not a whole line, so a genuine line that happens to
-// mention charging in a fresh way would not trip it — but ours does not
-// need any of them at all.
-const TIRED_TROPES = [
+/** Smallest entry the gate accepts, in characters. */
+const GATE_MIN_CHARS = 1;
+
+/** Largest entry the gate accepts, in characters. */
+const GATE_MAX_CHARS = 200;
+
+/**
+ * A spoken pickup line is one breath, not a paragraph. This ceiling is
+ * generous — the chosen line is seventeen words — so a careless edit that
+ * pads the line trips here long before it reaches the judge.
+ */
+const MAX_WORDS = 25;
+
+// ---------------------------------------------------------------------------
+// What the line must not be
+// ---------------------------------------------------------------------------
+
+/**
+ * Robot pickup tropes the judge has heard a thousand times. A line built
+ * from one of these loses the surprise before the judge weighs anything
+ * else. These are fragments, not whole lines, so a fresh line that merely
+ * mentions charging in a new way would not trip the check — but the
+ * chosen line needs none of them at all.
+ */
+const OVERUSED_TROPES = [
+  "beep boop",
   "wifi",
   "wi-fi",
   "charging cable",
   "error 404",
-  "you had me at hello",
   "are you a bug",
-  "my heart is a",
-  "beep boop",
+  "you had me at hello",
+  "my heart is a circuit",
+];
+
+/**
+ * Words that would turn the line creepy or cruel instead of charming —
+ * the judge's fifth criterion. The chosen line contains none of them, and
+ * any edit that introduced one should be caught here, not by the judge.
+ */
+const HOSTILE_WORDS = [
+  "obey",
+  "override",
+  "scan you",
+  "track you",
+  "hack",
+  "delete you",
+  "terminate",
+];
+
+/**
+ * Words that only a machine would use about itself — training, sensors,
+ * firmware, charging, updates, protocols, memory, code. The judge's
+ * second criterion asks for the joke to grow out of being a machine, so
+ * the line must carry at least one of these.
+ */
+const MACHINE_WORDS = [
+  "train",
+  "trained",
+  "training",
+  "sensor",
+  "firmware",
+  "charg",
+  "updat",
+  "protocol",
+  "circuit",
+  "code",
+  "reboot",
+  "backup",
+  "memory",
+  "data",
+  "algorithm",
+  "model",
 ];
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Measuring the line
 // ---------------------------------------------------------------------------
 
 /**
- * Count characters the way the gate does: Unicode code points, not UTF-16
- * code units, so a line with astral characters is measured honestly.
- * (This line is plain ASCII, but the count must stay honest if it is
- * ever edited.)
+ * Length in characters, counted the way the gate counts: Unicode code
+ * points, not UTF-16 code units, so a line with characters outside the
+ * basic plane is measured honestly. (This line is plain ASCII, but the
+ * count must stay honest if the line is ever edited.)
  */
-function countChars(text: string): number {
+function charLength(text: string): number {
   return [...text].length;
 }
 
 /**
- * Count words: sequences of letters, digits or apostrophes, so "I've"
- * is one word and the line's economy can be measured honestly.
+ * Word count: runs of non-space characters. "I've" is one word here, and
+ * that is the honest way to measure the line's economy.
  */
-function countWords(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
+function wordCount(text: string): number {
+  return text.trim().split(/\s+/).filter((word) => word.length > 0).length;
 }
 
-/**
- * True when the text is exactly one line: no line breaks anywhere in it,
- * so the file the judge reads holds a single pickup line and nothing else.
- */
-function isSingleLine(text: string): boolean {
+/** True when the text holds no line break of any kind. */
+function hasNoLineBreaks(text: string): boolean {
   return !/[\r\n]/.test(text);
+}
+
+/** True when the text is empty or nothing but whitespace. */
+function isBlank(text: string): boolean {
+  return text.trim().length === 0;
 }
 
 /**
  * True when the text reads as a robot speaking in the first person about
- * its own machine nature — the judge's first two criteria. A robot
- * pickup line says "I" and says something only a machine would say:
- * training, sensors, firmware, charging, updates, protocols.
+ * its own machine nature, addressed to the person it is charming. That is
+ * the judge's first two criteria in one check: an "I" (or "I've" / "I'm"),
+ * a machine word, and a "you".
  */
-function soundsLikeRobotPickup(text: string): boolean {
+function readsAsRobotSpeaking(text: string): boolean {
   const lower = text.toLowerCase();
-  const firstPerson = /\bi\b/.test(lower) || lower.includes("i've") || lower.includes("i'm");
-  const machineWord = /\b(train|trained|training|sensor|firmware|charg|updat|protocol|circuit|code|reboot|backup|memory|data)\b/.test(
-    lower,
-  );
+  const firstPerson =
+    /\bi\b/.test(lower) || lower.includes("i've") || lower.includes("i'm");
+  const machineWord = MACHINE_WORDS.some((word) => lower.includes(word));
   const addressesSomeone = /\byou\b/.test(lower);
   return firstPerson && machineWord && addressesSomeone;
 }
 
-/**
- * True when the line leans on none of the pickup tropes the judge has
- * heard a thousand times. Freshness is criterion 3; a line built from a
- * tired trope loses the surprise before the judge even weighs the rest.
- */
-function isFreeOfTiredTropes(text: string): boolean {
+/** True when the line leans on none of the overused robot tropes. */
+function avoidsOverusedTropes(text: string): boolean {
   const lower = text.toLowerCase();
-  return !TIRED_TROPES.some((trope) => lower.includes(trope));
+  return !OVERUSED_TROPES.some((trope) => lower.includes(trope));
+}
+
+/** True when the line carries none of the hostile or creepy words. */
+function staysCharming(text: string): boolean {
+  const lower = text.toLowerCase();
+  return !HOSTILE_WORDS.some((word) => lower.includes(word));
 }
 
 /**
- * The sealed gate, re-checked locally before anything is written:
- * 1 to 200 characters, not only white space. A line that fails this
- * scores Valid 0 and never reaches the judge, so fail loudly here
- * instead of shipping a silent zero.
+ * A small report card for the line, so the checks below — and the log line
+ * at the end — can talk about the same numbers instead of recomputing
+ * them in three places.
  */
-function checkGate(line: string): void {
-  if (typeof line !== "string") {
-    throw new Error("entry must be a string");
-  }
-  const chars = countChars(line);
-  if (chars < MIN_CHARS || chars > MAX_CHARS) {
+interface LineStats {
+  chars: number;
+  words: number;
+  singleLine: boolean;
+  robotVoice: boolean;
+  fresh: boolean;
+  charming: boolean;
+}
+
+function measureLine(text: string): LineStats {
+  return {
+    chars: charLength(text),
+    words: wordCount(text),
+    singleLine: hasNoLineBreaks(text),
+    robotVoice: readsAsRobotSpeaking(text),
+    fresh: avoidsOverusedTropes(text),
+    charming: staysCharming(text),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Checks — gate first, then the judge's shape, then the encoding
+// ---------------------------------------------------------------------------
+
+/**
+ * The sealed gate, re-checked locally before anything is written: 1 to
+ * 200 characters, not only white space. A line that fails this scores
+ * Valid 0 and never reaches the judge, so fail loudly here instead of
+ * shipping a silent zero.
+ */
+function assertGatePasses(text: string, stats: LineStats): void {
+  if (stats.chars < GATE_MIN_CHARS || stats.chars > GATE_MAX_CHARS) {
     throw new Error(
-      `entry must be ${MIN_CHARS} to ${MAX_CHARS} characters, got ${chars}`,
+      `gate: entry must be ${GATE_MIN_CHARS} to ${GATE_MAX_CHARS} characters, got ${stats.chars}`,
     );
   }
-  if (line.trim().length === 0) {
-    throw new Error("entry must not be only white space");
+  if (isBlank(text)) {
+    throw new Error("gate: entry must not be only white space");
   }
 }
 
 /**
- * The judge's own first criteria, checked the same way: exactly one
- * line, a robot speaking in the first person about its machine nature
- * to the person it is charming, and free of the tired tropes. Surprise,
- * economy and charm live in the line itself, so this only guards the
- * shape a careless edit could break.
+ * The judge's own shape, checked the same way: exactly one line, a robot
+ * speaking in the first person about its machine nature to the person it
+ * is charming, free of tired tropes, economical, and charming rather
+ * than creepy. Surprise lives in the line itself, so this only guards
+ * the shape a careless edit could break.
  */
-function checkJudgeFit(line: string): void {
-  if (!isSingleLine(line)) {
-    throw new Error("entry must be exactly one line with no line breaks");
+function assertJudgeShape(text: string, stats: LineStats): void {
+  if (!stats.singleLine) {
+    throw new Error("judge shape: entry must be exactly one line, no line breaks");
   }
-  // Criterion 4, economy: a pickup line is one breath, not a paragraph.
-  // Twenty-five words is a generous ceiling for a single spoken line;
-  // ours is seventeen, so a future edit that pads it will trip here
-  // before it ever reaches the judge.
-  if (countWords(line) > 25) {
+  if (stats.words > MAX_WORDS) {
     throw new Error(
-      `entry must be economical, at most 25 words, got ${countWords(line)}`,
+      `judge shape: entry must be economical, at most ${MAX_WORDS} words, got ${stats.words}`,
     );
   }
-  if (!soundsLikeRobotPickup(line)) {
+  if (!stats.robotVoice) {
     throw new Error(
-      "entry must be a robot speaking in the first person about its machine nature, addressed to you",
+      "judge shape: entry must be a robot speaking in the first person about its machine nature, addressed to you",
     );
   }
-  if (!isFreeOfTiredTropes(line)) {
-    throw new Error("entry must not lean on a tired robot pickup trope");
+  if (!stats.fresh) {
+    throw new Error("judge shape: entry must not lean on an overused robot pickup trope");
+  }
+  if (!stats.charming) {
+    throw new Error("judge shape: entry must be charming, not creepy or cruel");
   }
 }
 
@@ -198,27 +300,46 @@ function checkJudgeFit(line: string): void {
  * confirm the round trip is exact, so no stray byte can slip into
  * entry.txt and fail the sealed scorer's UTF-8 check.
  */
-function checkUtf8RoundTrip(line: string): void {
-  const encoded = new TextEncoder().encode(line);
+function assertCleanUtf8(text: string): void {
+  const encoded = new TextEncoder().encode(text);
   const decoded = new TextDecoder("utf-8", { fatal: true }).decode(encoded);
-  if (decoded !== line) {
-    throw new Error("entry must be clean UTF-8 text");
+  if (decoded !== text) {
+    throw new Error("encoding: entry must be clean UTF-8 text");
   }
 }
 
-/** Run every check, gate first, then judge fit, then encoding. */
-function validate(line: string): void {
-  checkGate(line);
-  checkJudgeFit(line);
-  checkUtf8RoundTrip(line);
+/** Every check, in order: gate, judge shape, encoding. */
+function validateEntry(text: string): LineStats {
+  const stats = measureLine(text);
+  assertGatePasses(text, stats);
+  assertJudgeShape(text, stats);
+  assertCleanUtf8(text);
+  return stats;
+}
+
+// ---------------------------------------------------------------------------
+// Output
+// ---------------------------------------------------------------------------
+
+/**
+ * Where entry.txt goes: the MAKEFUN_OUTPUT_DIR environment variable when
+ * the harness sets it, /output otherwise. Nothing here is hardcoded to a
+ * fixed output path.
+ */
+function outputDirectory(): string {
+  return process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
 }
 
 /**
- * Resolve the output directory the way the harness does: the
- * MAKEFUN_OUTPUT_DIR environment variable when set, /output otherwise.
+ * Write the validated line to entry.txt, creating the directory if needed.
+ * The file holds exactly the line — no trailing newline, no extra text —
+ * so the gate measures precisely what the judge reads.
  */
-function resolveOutputDir(): string {
-  return process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
+function writeEntry(text: string, outDir: string): string {
+  mkdirSync(outDir, { recursive: true });
+  const outPath = join(outDir, "entry.txt");
+  writeFileSync(outPath, text, "utf8");
+  return outPath;
 }
 
 // ---------------------------------------------------------------------------
@@ -226,12 +347,10 @@ function resolveOutputDir(): string {
 // ---------------------------------------------------------------------------
 
 function main(): void {
-  validate(LINE);
-  const outDir = resolveOutputDir();
-  mkdirSync(outDir, { recursive: true });
-  writeFileSync(join(outDir, "entry.txt"), LINE, "utf8");
+  const stats = validateEntry(PICKUP_LINE);
+  const outPath = writeEntry(PICKUP_LINE, outputDirectory());
   console.log(
-    `wrote ${countChars(LINE)}-character entry "${LINE}" to ${join(outDir, "entry.txt")}`,
+    `wrote ${stats.chars}-character, ${stats.words}-word entry to ${outPath}: "${PICKUP_LINE}"`,
   );
 }
 
